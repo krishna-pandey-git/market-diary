@@ -1,0 +1,14 @@
+<Solution>
+  <Folder Name="/backend/">
+    <Project Path="backend/MarketDiary.Api/MarketDiary.Api.csproj" />
+  </Folder>
+  <Folder Name="/frontend/">
+    <File Path="frontend/angular.json" />
+    <File Path="frontend/package.json" />
+    <File Path="frontend/tsconfig.json" />
+  </Folder>
+  <Folder Name="/Solution Items/">
+    <File Path="README.md" />
+    <File Path="compose.yml" />
+  </Folder>
+</Solution>
