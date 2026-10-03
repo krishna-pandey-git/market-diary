@@ -71,8 +71,9 @@ builder.Services.AddOpenApi();
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
     options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
-    options.ForwardLimit = 1;
-    options.KnownProxies.Add(IPAddress.Parse("172.30.0.3"));
+    // The host (e.g. Azure App Service) fronts the app with its own proxy, so trust it.
+    options.KnownIPNetworks.Clear();
+    options.KnownProxies.Clear();
 });
 builder.Services.AddRateLimiter(options =>
 {
@@ -135,6 +136,8 @@ await using (var scope = app.Services.CreateAsyncScope())
     }
 }
 
+app.UseDefaultFiles();
+app.UseStaticFiles();
 app.UseRouting();
 app.UseCors();
 app.UseRateLimiter();
@@ -142,9 +145,7 @@ app.UseRateLimiter();
 // AUTH-DISABLED: app.UseAuthorization();
 app.MapControllers();
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+// Serves the Angular app (published into wwwroot); unknown non-API paths fall back to index.html.
+app.MapFallbackToFile("{*path:regex(^(?!api/).*$)}", "index.html");
 
 app.Run();
-
-public partial class Program
-{
-}

@@ -17,4 +17,22 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.12" />
   </ItemGroup>
 
+  <!-- Builds the Angular app and places it in wwwroot of the published output. Skip with -p:BuildFrontend=false. -->
+  <PropertyGroup>
+    <FrontendDir>$(MSBuildProjectDirectory)\..\..\frontend\</FrontendDir>
+    <BuildFrontend Condition="'$(BuildFrontend)' == ''">true</BuildFrontend>
+  </PropertyGroup>
+
+  <Target Name="BuildFrontend" BeforeTargets="ComputeFilesToPublish" Condition="'$(BuildFrontend)' == 'true'">
+    <Exec Command="npm ci" WorkingDirectory="$(FrontendDir)" Condition="!Exists('$(FrontendDir)node_modules')" />
+    <Exec Command="npx ng build --configuration production" WorkingDirectory="$(FrontendDir)" />
+    <ItemGroup>
+      <FrontendFiles Include="$(FrontendDir)dist\client\browser\**\*" />
+      <ResolvedFileToPublish Include="@(FrontendFiles)">
+        <RelativePath>wwwroot\%(RecursiveDir)%(Filename)%(Extension)</RelativePath>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      </ResolvedFileToPublish>
+    </ItemGroup>
+  </Target>
+
 </Project>

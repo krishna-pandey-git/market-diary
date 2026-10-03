@@ -8,7 +8,6 @@ A self-hosted share journal with a searchable share list and dated notes. The An
 
 - Node.js **24.21.0** and npm 12 (pinned in `.node-version` / `.nvmrc`)
 - .NET SDK **10.0.401** or a later patch in the same feature band (`global.json`)
-- Docker Compose for the containerized deployment (not needed for local development)
 
 ## Local development
 
@@ -53,41 +52,18 @@ Anyone can register a username and password. Passwords are stored using ASP.NET 
 
 There is no email verification, password reset, or account recovery yet. Treat public registration as an MVP feature and monitor the service. Usernames are 3–32 letters, digits, dots, dashes, or underscores; passwords need at least 12 characters including uppercase, lowercase, a number, and a symbol. Share names are required and limited to 120 characters; notes are limited to 10,000 characters and default to today's date.
 
-## Self-hosted deployment
+## Deployment (single app, e.g. Azure App Service)
 
-Use a publicly reachable DNS name pointing to the host. Forward TCP ports 80 and 443 (and optionally UDP 443 for HTTP/3) to it. Install Docker Compose, copy `.env.example` to `.env`, and set:
+`dotnet publish backend/MarketDiary.Api -c Release -o publish` builds the Angular app and places it in `wwwroot` of the output, so the API serves the UI and `/api` from one origin. Use `-p:BuildFrontend=false` to skip the frontend build.
 
-- `DOMAIN` to the DNS name
-- `JWT_SIGNING_KEY` to a random value of at least 32 bytes
+- Set `ConnectionStrings__Default` to a persistent path (on App Service for Linux, e.g. `Data Source=/home/data/market-diary.db`); files in the app folder are overwritten on each deploy.
+- Run a single instance; SQLite does not support scaling out.
+- When auth is re-enabled, also set `Authentication__JwtSigningKey` (random, 32+ bytes).
 
-Generate secrets with a trusted password manager or `openssl rand -hex 32`. Then deploy:
+## Database backup
 
-```sh
-docker compose up -d --build
-docker compose logs -f
-```
-
-Caddy obtains and renews HTTPS certificates for `DOMAIN`; the API and its database are not published; only the web proxy exposes ports. The SQLite file lives in the `api_data` Docker volume (`/data/market-diary.db`), and the API must run as a single instance. Back up `.env` securely along with the database—losing the signing key invalidates all active sessions. Do not expose the app over plain HTTP or publish the fixed shared credential from the original proposal.
-
-## Database backup and restore
-
-Create a consistent online backup of the SQLite file (safe while the API is running) using a throwaway container. The volume name is normally `<project>_api_data`; confirm it with `docker volume ls`:
-
-```sh
-docker run --rm -v market-diary_api_data:/data -v "${PWD}:/backup" alpine:3 sh -c "apk add --no-cache sqlite >/dev/null && sqlite3 /data/market-diary.db \".backup '/backup/market-diary.db'\""
-```
-
-To restore, stop the API, replace the database, and start it again (this overwrites current data):
-
-```sh
-docker compose stop api
-docker run --rm -v market-diary_api_data:/data -v "${PWD}:/backup" alpine:3 sh -c "rm -f /data/market-diary.db* && cp /backup/market-diary.db /data/market-diary.db && chown 1654 /data/market-diary.db"
-docker compose start api
-```
-
-Keep backups encrypted and off-host, and verify restores periodically. The `api_data` volume is persistent storage, not a backup.
+Copy the SQLite file while the API is stopped, or use `sqlite3 market-diary.db ".backup 'backup.db'"` for a consistent online copy. To restore, stop the app, replace the file (and delete any `-wal`/`-shm` files), and start it again. Keep backups off-host.
 ## Project layout
 
 - `backend/MarketDiary.Api` — ASP.NET Core 10 API, Identity authentication, EF Core models and migrations
 - `frontend` — Angular 21 SPA, Tailwind CSS and daisyUI
-- `compose.yml` — API (with SQLite volume), static frontend, and Caddy HTTPS reverse proxy
